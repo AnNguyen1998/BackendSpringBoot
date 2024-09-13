@@ -1,8 +1,10 @@
 package com.example.demo.controllers;
 
 import com.example.demo.dtos.StudentDTO;
+import com.example.demo.dtos.StudentImageDTO;
 import com.example.demo.exceptions.ResourceNotFoundException;
 import com.example.demo.models.Student;
+import com.example.demo.models.StudentImage;
 import com.example.demo.models.XepHang;
 import com.example.demo.reponses.ApiResponse;
 import com.example.demo.reponses.ListStudentResponse;
@@ -13,12 +15,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -195,5 +208,55 @@ public class StudentController {
                 .data(listStudentResponse)
                 .build();
         return ResponseEntity.ok(apiResponse);
+    }
+
+    @GetMapping("/getAllImage/{id}")
+    public ResponseEntity<ApiResponse> getAllImage(@PathVariable(value = "id")Long studentId){
+        ApiResponse apiResponse = ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("Get Image Url Successfully")
+                .data(studentService.getAllStudentImage(studentId))
+                .build();
+        return ResponseEntity.ok(apiResponse);
+    }
+    @PostMapping(value = "/uploadsImage/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse> uploadImage(@PathVariable(value = "id")Long id, @ModelAttribute("files")List<MultipartFile> files) throws IOException {
+        List<StudentImage> studentImages = new ArrayList<>();
+        int count = 0;
+        studentService.getStudentByID(id);
+        for(MultipartFile file : files) {
+            if (file != null) {
+                if(file.getSize() == 0) {
+                    count++;
+                    continue;
+                }
+            }
+            String fileName = storeFile(file);
+            StudentImageDTO studentImageDTO = StudentImageDTO.builder()
+                    .imageUrl(fileName)
+                    .build();
+            StudentImage studentImage = studentService.saveStudentImage(id, studentImageDTO);
+            studentImages.add(studentImage);
+        }
+        if(count == 1){
+            throw new IllegalArgumentException("File rong");
+        }
+        ApiResponse apiResponse = ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("Upload Image Url successfully")
+                .data(studentImages)
+                .build();
+        return ResponseEntity.ok(apiResponse);
+    }
+    private String storeFile(MultipartFile file) throws IOException {
+        String fileName = StringUtils.cleanPath(file.getOriginalFilename());
+        String uniqueFileName = UUID.randomUUID().toString()+"_"+fileName;
+        java.nio.file.Path uploadDdir = Paths.get("upload");
+        if(!Files.exists(uploadDdir)){
+            Files.createDirectory(uploadDdir);
+        }
+        java.nio.file.Path destination = Paths.get(uploadDdir.toString(), uniqueFileName);
+        Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
+        return uniqueFileName;
     }
 }

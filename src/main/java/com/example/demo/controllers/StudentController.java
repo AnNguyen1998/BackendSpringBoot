@@ -12,6 +12,7 @@ import com.example.demo.services.StudentService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.UrlResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -242,7 +243,7 @@ public class StudentController {
             throw new IllegalArgumentException("File rong");
         }
         ApiResponse apiResponse = ApiResponse.builder()
-                .status(HttpStatus.OK.value())
+                .status(HttpStatus.CREATED.value())
                 .message("Upload Image Url successfully")
                 .data(studentImages)
                 .build();
@@ -258,5 +259,24 @@ public class StudentController {
         java.nio.file.Path destination = Paths.get(uploadDdir.toString(), uniqueFileName);
         Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);
         return uniqueFileName;
+    }
+
+    @GetMapping("getimage/{imageName}")
+    public ResponseEntity<?> viewImage(@PathVariable String imageName){
+        try{
+            java.nio.file.Path imagePath = Paths.get("upload/"+imageName);
+            UrlResource resource = new UrlResource(imagePath.toUri());
+            if(resource.exists()){
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .body(resource);
+            }else {
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .body(new UrlResource(Paths.get("upload/notfound.jpeg").toUri()));
+            }
+        }catch (Exception e){
+            return ResponseEntity.notFound().build();
+        }
     }
 }
